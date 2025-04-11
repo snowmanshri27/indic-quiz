@@ -30,28 +30,24 @@ class QuizParser:
 
 def build_english_quiz_pipeline():
     pipeline = Pipeline()
-    pipeline.add_component("websearch", SerperDevWebSearch(top_k=5))
+    pipeline.add_component("websearch", SerperDevWebSearch(top_k=1))
     pipeline.add_component(
         "prompt_builder",
         PromptBuilder(
             template="""
             Given the following - {{text}} - in English language, create 5 multiple choice quizzes in JSON format in English language.
+            
             Each question should have 4 different options, and only one of them should be correct.
             The options should be unambiguous.
-            There must be always be 4 options and they should be in alphabteical order (e.g. 'a. option1', 'b. option2', 'c. option3', 'd. option4')
+            There must be always be 4 options.
+            The options should be in alphabteical order (e.g. 'a. option1', 'b. option2', 'c. option3', 'd. option4')
             Each option should begin with a letter followed by a period and a space (e.g., "a. king").
             The question should also briefly mention the general topic of the text so that it can be understood in isolation.
             Each question should not give hints to answer the other questions.
-            Include challenging questions, which require reasoning.
-            Generate simple english sentences so that they can be easily converted to Sanskrit.
 
             Respond with JSON only, no markdown or descriptions.
-            The JSON should be entirely in English.
 
             Note that you are able to provide more accurate english sentences because you can understand additional context from web sources.
-            You are able to use the snippets extracted from the web to excel in your translation.
-            Only, if you aren't able to find sources on the web that matches the text, then use your knowledge of English grammar.
-            Provide the link to the source from the web that you might have used.
 
             Example JSON format you should absolutely follow, including the reasoning:
 
@@ -84,7 +80,7 @@ def build_english_quiz_pipeline():
             api_base_url="https://api.groq.com/openai/v1",
             model="llama3-70b-8192",
             generation_kwargs={
-                "max_tokens": 5000,
+                "max_tokens": 6000,
                 "temperature": 0.5,
                 "top_p": 1,
             },
