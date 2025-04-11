@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-haystack-ai[serper]
-openai
-python-dotenv
-json_repair

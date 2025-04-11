@@ -25,7 +25,7 @@ class QuizParser:
 
         if isinstance(quiz, list):
             quiz = quiz[0]
-            
+
         return quiz
 
 def build_english_quiz_pipeline():
@@ -38,6 +38,7 @@ def build_english_quiz_pipeline():
             Given the following - {{text}} - in English language, create 5 multiple choice quizzes in JSON format in English language.
             Each question should have 4 different options, and only one of them should be correct.
             The options should be unambiguous.
+            There must be always be 4 options and they should be in alphabteical order (e.g. 'a. option1', 'b. option2', 'c. option3', 'd. option4')
             Each option should begin with a letter followed by a period and a space (e.g., "a. king").
             The question should also briefly mention the general topic of the text so that it can be understood in isolation.
             Each question should not give hints to answer the other questions.
