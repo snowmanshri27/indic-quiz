@@ -53,7 +53,7 @@ def build_english_quiz_pipeline():
 
             {
               "quiz": {
-                "topic": "a sentence explaining the topic of the text",
+                "title": "a sentence explaining the topic of the text",
                 "questions": [
                   {
                     "question": "text of the question",
