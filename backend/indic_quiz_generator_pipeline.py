@@ -26,6 +26,26 @@ class QuizParser:
         if isinstance(quiz, list):
             quiz = quiz[0]
 
+        for question in quiz.get("questions", []):
+            options = question.get("options", [])
+            
+            # Extract label to option mapping
+            label_map = {}
+            for opt in options:
+                if isinstance(opt, str) and len(opt) > 2 and opt[1] == '.':
+                    label = opt[0].lower()
+                    label_map[label] = opt
+            
+            # Fill in or reorder a-d
+            ordered_options = []
+            for label in ['a', 'b', 'c', 'd']:
+                if label in label_map:
+                    ordered_options.append(label_map[label])
+                else:
+                    ordered_options.append(f"{label}. (missing option)")
+
+            question["options"] = ordered_options
+
         return quiz
 
 def build_english_quiz_pipeline():
@@ -38,9 +58,7 @@ def build_english_quiz_pipeline():
             Given the following - {{text}} - in English language, create 5 multiple choice quizzes in JSON format in English language.
             
             Each question should have 4 different options, and only one of them should be correct.
-            The options should be unambiguous.
-            There must be always be 4 options.
-            The options should be in alphabteical order (e.g. 'a. option1', 'b. option2', 'c. option3', 'd. option4')
+            For each question, provide exactly 4 options labeled a., b., c., and d. Ensure each option is unique and plausible
             Each option should begin with a letter followed by a period and a space (e.g., "a. king").
             The question should also briefly mention the general topic of the text so that it can be understood in isolation.
             Each question should not give hints to answer the other questions.
@@ -53,7 +71,7 @@ def build_english_quiz_pipeline():
 
             {
               "quiz": {
-                "title": "a sentence explaining the topic of the text",
+                "topic": "a sentence explaining the topic of the text",
                 "questions": [
                   {
                     "question": "text of the question",
