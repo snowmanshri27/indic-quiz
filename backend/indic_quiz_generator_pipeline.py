@@ -13,6 +13,8 @@ class QuizParser:
     """Parses the quiz JSON out of the LLM's response."""
     @component.output_types(quiz=Dict)
     def run(self, replies: List[str]):
+        import re
+
         reply = replies[0]
         first_index = min(reply.find("{"), reply.find("["))
         last_index = max(reply.rfind("}"), reply.rfind("]")) + 1
@@ -26,25 +28,51 @@ class QuizParser:
         if isinstance(quiz, list):
             quiz = quiz[0]
 
-        for question in quiz.get("questions", []):
-            options = question.get("options", [])
-            
-            # Extract label to option mapping
-            label_map = {}
-            for opt in options:
-                if isinstance(opt, str) and len(opt) > 2 and opt[1] == '.':
-                    label = opt[0].lower()
-                    label_map[label] = opt
-            
-            # Fill in or reorder a-d
-            ordered_options = []
-            for label in ['a', 'b', 'c', 'd']:
-                if label in label_map:
-                    ordered_options.append(label_map[label])
-                else:
-                    ordered_options.append(f"{label}. (missing option)")
+        for q in quiz.get("questions", []):
+            raw_options = q.get("options")
 
-            question["options"] = ordered_options
+            # Handle if options is a dictionary (malformed JSON case)
+            if isinstance(raw_options, dict):
+                raw_options = list(raw_options.values())
+            elif not isinstance(raw_options, list):
+                # Look for possible misplaced keys that are actually options
+                raw_options = []
+                for key, value in q.items():
+                    if key not in ("question", "right_option", "source"):
+                        if isinstance(value, str):
+                            raw_options.append(key.strip())
+                            raw_options.append(value.strip())
+                # Remove added non-options from the question dict
+                for key in list(q.keys()):
+                    if key not in ("question", "right_option", "source", "options"):
+                        q.pop(key)
+
+            # Fallback to empty list if still invalid
+            if not isinstance(raw_options, list):
+                raw_options = []
+
+            # Clean and normalize options
+            normalized = []
+            seen = set()
+            for opt in raw_options:
+                if not isinstance(opt, str):
+                    continue
+                match = re.match(r"^[a-dA-D]\.\s+(.*)", opt.strip())
+                text = match.group(1).strip() if match else opt.strip()
+                if text not in seen:
+                    seen.add(text)
+                    normalized.append(text)
+
+            # Fill missing options
+            while len(normalized) < 4:
+                normalized.append("(missing option)")
+
+            # Limit to 4
+            normalized = normalized[:4]
+
+            # Label as a., b., c., d.
+            labeled = [f"{label}. {text}" for label, text in zip("abcd", normalized)]
+            q["options"] = labeled
 
         return quiz
 
