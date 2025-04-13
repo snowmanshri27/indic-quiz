@@ -17,7 +17,7 @@ The monkey due to its foolish nature became angry, got a sharp sword and hit the
 # Run the pipeline
 english_quiz = english_quiz_generation.run(
     data={
-        "websearch": {"query": f"""{indic_topic} full story text."""},
+        "websearch": {"query": f"""{indic_topic}"""},
         "prompt_builder": {
             "text": indic_text
         }
