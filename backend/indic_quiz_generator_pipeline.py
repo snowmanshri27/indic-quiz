@@ -1,3 +1,5 @@
+# backend/indic_quiz_generator_pipeline.py
+
 import json
 import json_repair
 from agno.agent import Agent
@@ -43,13 +45,13 @@ class QuizParser:
                 # Attempt to reconstruct options from key-value pairs
                 raw_options = []
                 for key, value in q.items():
-                    if key.lower() not in ("question", "right_option", "question_type", "number_of_points_earned", "chapter", "source"):
+                    if key.lower() not in ("question", "right_option", "options", "question_type", "number_of_points_earned", "chapter", "timer", ):
                         if isinstance(value, str):
                             raw_options.append(key.strip())
                             raw_options.append(value.strip())
                 # Remove those fields to clean up
                 for key in list(q.keys()):
-                    if key not in ("Question", "Right_Option", "Options", "Question_type", "Number_Of_Points_Earned", "Chapter", "source"):
+                    if key.lower() not in ("question", "right_option", "options", "question_type", "number_of_points_earned", "chapter", "timer", ):
                         q.pop(key)
 
             if not isinstance(raw_options, list):
@@ -82,29 +84,35 @@ class QuizParser:
 def build_english_quiz_agent():
     agent = Agent(
         model=Groq(id="llama-3.3-70b-versatile"),
+        # model=Groq(id="meta-llama/llama-4-scout-17b-16e-instruct"),
         markdown=True
     )
     return agent
 
 
-def build_quiz_prompt(chapter_text: str) -> str:
-    prompt = f"""
-        Generate 10 questions with these requirements:
+def build_quiz_prompt(chapter_text: str, num_questions: int) -> str:
+    # Calculate SCQ/MCQ split
+    scq_count = (num_questions + 1) // 2  # Favor SCQ if odd
+    mcq_count = num_questions - scq_count
 
-        - Each question should have 4 different options, where either 1 answer or at least 2 answer choices are correct per question.
-        - Exactly 5 of the questions must have exactly one correct option (Single Choice), and exactly 5 of the questions must have at least two correct options (Multiple Choice).
-        - Never include "all of the above" as a possible answer choice.
-        - For each question, provide exactly 4 options labeled a., b., c., and d. Ensure all options are unique and plausible.
+    prompt = f"""
+        Generate questions with these requirements:
+
+        - There should be exactly {num_questions} questions with exactly {scq_count} Single Choice Questions (SCQ) and {mcq_count} Multiple Choice Questions (MCQ).
+        - For each question, provide exactly 4 answer options labeled a., b., c., and d. Ensure all options are unique and plausible.
+        - Never include "all of the above" as a possible option.
+        - Each option should begin with a letter followed by a period and a space (e.g., "a. king").
         - Each question must test a different concept.
         - Each question should also mention the type of question it is. There are only two types: SCQ and MCQ.
-        - A MCQ question has at least two right options. A SCQ question has only one right option.
-        - Each question should also have the number of points associated with it. Each question is worth exactly 10 points.
-        - Each question should also mention the chapter the question is from. The chapter number is mentioned at the beginning of the story.
-        - Each option should begin with a letter followed by a period and a space (e.g., "a. king").
-        - The question should briefly mention the general topic of the text so it can be understood in isolation.
-        - Each question should not give hints to answer the other questions.
-
-        Respond with JSON only — no markdown or extra description.
+        - A SCQ (single choice question) must have only one right option.
+        - A MCQ (multiple choice question) must have at least two right options. 
+        – Each question must be focussed solely on the passage. 
+        - Each question should have a time, between 10 to 30 seconds, associated with answering the question, dependent on the difficulty of the question.
+        - Each question should use active voice and make it more direct and natural-sounding.
+        - Each question should be constructuved like "What" or "Who" or "Where" or "When" or "How" or "Why" and so on.
+        – Each question must be phrased conversationally and directly, avoiding awkward or overly formal constructions.
+        – Each question should be grammatically correct and suitable for middle to high school readers.
+        - The final output must be a valid JSON array with no syntax errors, no markdown or extra description.
 
         Example JSON format you must strictly follow, including field names and structure:
 
@@ -113,12 +121,13 @@ def build_quiz_prompt(chapter_text: str) -> str:
             "Topic": "a sentence explaining the topic of the text. Don't include the type of question, number of points, or chapter number",
             "Questions": [
             {{
-                "Question": "text of the question",
+                "Question": "only the text of the question, do not mention type, number of points earned, or time to answer. If question is a MCQ, then the text "(Select all answers that are correct)" should follow the question",
                 "Question_type": "Type of the question: either MCQ or SCQ",
                 "Options": ["a. 1st option", "b. 2nd option", "c. 3rd option", "d. 4th option"],
                 "Right_Option": "c",
                 "Number_Of_Points_Earned": 10,
                 "Chapter": "Just provide the chapter (ex: Chapter 2)"
+                "Timer": "Include number of seconds for question (ex: 10)"
             }}
             ]
         }}

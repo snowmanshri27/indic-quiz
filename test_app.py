@@ -7,22 +7,24 @@ parser = QuizParser()
 
 quiz_data = {"questions": [], "index": 0, "answers": [], "last_selected": None}
 
-def generate_quiz(topic, story):
-    final_prompt = build_quiz_prompt(story)
+def generate_quiz(topic, story, mode):
+    final_prompt = build_quiz_prompt(story, num_questions=15)
 
-    try:
+    try: 
         english_quiz = english_quiz_agent.run(final_prompt)
     except Exception as e:
         return (
             gr.update(visible=True),  # input_form
             gr.update(visible=False),  # flashcard
+            gr.update(visible=False),  # csv_output_form
             gr.update(value=f"Error: {str(e)}"),  # question_text
-            gr.update(visible=False),  # radio
-            gr.update(visible=False),  # checkbox
-            gr.update(visible=False),  # mcq_submit_btn
+            gr.update(choices=[], value=None, visible=False),  # scq
+            gr.update(choices=[], value=None, visible=False),  # mcq
+            gr.update(visible=False),  # shared_submit
             gr.update(value=""),  # feedback
             gr.update(visible=False),  # flip
-            gr.update(visible=False)  # next
+            gr.update(visible=True),  # next
+            gr.update(value="")  # csv_text_output
         )
 
     english_quiz_text = parser.run(english_quiz.content)
@@ -31,7 +33,24 @@ def generate_quiz(topic, story):
     quiz_data["answers"] = []
     quiz_data["last_selected"] = None
 
-    return render_question(0)
+    if mode == "interactive":
+        return render_question(0)
+    else:
+        # Convert questions to CSV text format
+        csv_lines = ["Question,Options,Right_Option"]
+        for q in quiz_data["questions"]:
+            question = q["Question"].replace(",", ";")
+            options = " | ".join(q["Options"]).replace(",", ";")
+            right = q["Right_Option"]
+            csv_lines.append(f"{question},{options},{right}")
+        csv_content = "\n".join(csv_lines)
+        return (
+            gr.update(visible=False),  # input_form
+            gr.update(visible=False),  # flashcard
+            gr.update(visible=True),   # csv_output_form
+            gr.update(value=""), gr.update(), gr.update(), gr.update(),
+            gr.update(), gr.update(), gr.update(), gr.update(value=csv_content)
+        )
 
 def render_question(index):
     q = quiz_data["questions"][index]
@@ -44,69 +63,78 @@ def render_question(index):
     if qtype == "SCQ":
         return (
             gr.update(visible=False),  # input_form
-            gr.update(visible=True),  # flashcard
+            gr.update(visible=True),   # flashcard
+            gr.update(visible=False),  # csv_output_form
             gr.update(value=question),  # question_text
             gr.update(choices=options, value=None, visible=True, interactive=True),  # radio
             gr.update(choices=[], value=None, visible=False),  # checkbox
-            gr.update(visible=False),  # mcq_submit_btn
+            gr.update(visible=True),  # submit button shared
             gr.update(value=""),  # feedback
             gr.update(visible=False),  # flip
-            gr.update(visible=True)  # next
+            gr.update(visible=True),  # next
+            gr.update(value="")  # csv output
         )
     else:  # MCQ
         return (
             gr.update(visible=False),
             gr.update(visible=True),
+            gr.update(visible=False),
             gr.update(value=question),
-            gr.update(choices=[], value=None, visible=False),  # radio
-            gr.update(choices=options, value=None, visible=True, interactive=True),  # checkbox
-            gr.update(visible=True),  # mcq_submit_btn
+            gr.update(choices=[], value=None, visible=False),
+            gr.update(choices=options, value=None, visible=True, interactive=True),
+            gr.update(visible=True),
             gr.update(value=""),
             gr.update(visible=False),
-            gr.update(visible=False)
-        )
-
-def submit_scq(option):
-    if option is None:
-        return gr.update(), "⚠️ Please select an option. Or, flip to reveal the answer.", gr.update(visible=False)
-
-    quiz_data["last_selected"] = option
-    current_q = quiz_data["questions"][quiz_data["index"]]
-    correct = current_q["Right_Option"].lower()
-    selected = option[0].lower()
-
-    if selected == correct:
-        feedback = f"✅ Correct! The answer is: {option}"
-    else:
-        feedback = f"❌ Incorrect. You chose: {option}"
-
-    return gr.update(interactive=False), feedback, gr.update(visible=True)
-
-def submit_mcq(selected_options):
-    if not selected_options:
-        return (
-            gr.update(),  # leave checkbox state unchanged
-            "⚠️ Please select at least one option.",
             gr.update(visible=False),
-            gr.update(visible=False)
+            gr.update(value="")
         )
 
-    quiz_data["last_selected"] = selected_options
+def submit_answer(scq_selected, mcq_selected):
     current_q = quiz_data["questions"][quiz_data["index"]]
     correct_letters = set(current_q["Right_Option"].lower())
-    selected_letters = set(opt[0].lower() for opt in selected_options)
 
-    if selected_letters == correct_letters:
-        feedback = f"✅ Correct! The answer(s): {', '.join(selected_options)}"
+    if current_q["Question_type"].upper() == "SCQ":
+        if scq_selected is None:
+            return (
+                gr.update(interactive=True),
+                gr.update(value="⚠️ Please select an option. Or, flip to reveal the answer."),
+                gr.update(visible=False),
+                gr.update(visible=True)
+            )
+        quiz_data["last_selected"] = scq_selected
+        selected = scq_selected[0].lower()
+        feedback = (
+            f"✅ Correct! The answer is: {scq_selected}"
+            if selected in correct_letters else
+            f"❌ Incorrect. You chose: {scq_selected}"
+        )
+        return (
+            gr.update(interactive=False),
+            gr.update(value=feedback),
+            gr.update(visible=True),
+            gr.update(visible=True)
+        )
     else:
-        feedback = f"❌ Incorrect. You chose: {', '.join(selected_options)}"
-
-    return (
-        gr.update(interactive=False),  # disable MCQ checkboxes
-        feedback,
-        gr.update(visible=True),  # flip button
-        gr.update(visible=True)   # next question button
-    )
+        if not mcq_selected:
+            return (
+                gr.update(interactive=True),
+                gr.update(value="⚠️ Please select at least one option."),
+                gr.update(visible=False),
+                gr.update(visible=False)
+            )
+        quiz_data["last_selected"] = mcq_selected
+        selected_letters = set(opt[0].lower() for opt in mcq_selected)
+        feedback = (
+            f"✅ Correct! The answer(s): {', '.join(mcq_selected)}"
+            if selected_letters == correct_letters else
+            f"❌ Incorrect. You chose: {', '.join(mcq_selected)}"
+        )
+        return (
+            gr.update(interactive=False),
+            gr.update(value=feedback),
+            gr.update(visible=True),
+            gr.update(visible=True)
+        )
 
 def flip_to_show_answer():
     current_q = quiz_data["questions"][quiz_data["index"]]
@@ -122,36 +150,37 @@ def next_question():
         return (
             gr.update(visible=True),  # input_form
             gr.update(visible=False),  # flashcard
+            gr.update(visible=False),  # csv
             gr.update(value="🎉 Quiz complete! You can go back and try a new story."),
-            gr.update(visible=False),
-            gr.update(visible=False),
+            gr.update(choices=[], value=None, visible=False),
+            gr.update(choices=[], value=None, visible=False),
             gr.update(visible=False),
             gr.update(value=""),
             gr.update(visible=False),
-            gr.update(visible=False)
+            gr.update(visible=True),
+            gr.update(value="")
         )
     return render_question(quiz_data["index"])
 
 def go_back():
-    quiz_data["questions"] = []
-    quiz_data["index"] = 0
-    quiz_data["answers"] = []
-    quiz_data["last_selected"] = None
-
+    quiz_data.update({"questions": [], "index": 0, "answers": [], "last_selected": None})
     return (
         gr.update(visible=True),   # input form
         gr.update(visible=False),  # flashcard
+        gr.update(visible=False),  # csv_output_form
         gr.update(value=""),
         gr.update(choices=[], value=None, visible=False),
         gr.update(choices=[], value=None, visible=False),
         gr.update(visible=False),
         gr.update(value=""),
         gr.update(visible=False),
-        gr.update(visible=True)
+        gr.update(visible=True),
+        gr.update(value="")
     )
 
 with gr.Blocks() as demo:
     with gr.Column(visible=True) as input_form:
+        quiz_mode = gr.Radio(["interactive", "csv"], value="interactive", label="Mode")
         topic_input = gr.Textbox(label="Enter quiz topic", placeholder="e.g. The King’s Monkey Servant")
         story_input = gr.Textbox(label="Enter a story", lines=10)
         submit_btn = gr.Button("Generate Quiz")
@@ -160,32 +189,32 @@ with gr.Blocks() as demo:
         question_text = gr.Markdown()
         scq_options = gr.Radio(choices=[], label="Select one option", interactive=True, visible=False)
         mcq_options = gr.CheckboxGroup(choices=[], label="Select multiple options", visible=False)
-        mcq_submit_btn = gr.Button("Submit MCQ", visible=False)
+        submit_btn_shared = gr.Button("Submit Answer", visible=False)
         feedback_text = gr.Markdown()
         flip_btn = gr.Button("Flip to show answer", visible=False)
         next_btn = gr.Button("Next Question", visible=True)
         back_btn = gr.Button("Go back to story input", visible=True)
 
+    with gr.Column(visible=False) as csv_output_form:
+        csv_text_output = gr.Textbox(lines=15, label="Quiz CSV", interactive=False)
+        csv_copy_btn = gr.Button("Copy to Clipboard")
+        csv_download_btn = gr.Button("Download CSV")
+        csv_back_btn = gr.Button("Go back to story input")
+
     submit_btn.click(
         generate_quiz,
-        inputs=[topic_input, story_input],
+        inputs=[topic_input, story_input, quiz_mode],
         outputs=[
-            input_form, flashcard, question_text,
-            scq_options, mcq_options, mcq_submit_btn,
-            feedback_text, flip_btn, next_btn
+            input_form, flashcard, csv_output_form,
+            question_text, scq_options, mcq_options, submit_btn_shared,
+            feedback_text, flip_btn, next_btn, csv_text_output
         ]
     )
 
-    scq_options.change(
-        submit_scq,
-        inputs=scq_options,
-        outputs=[scq_options, feedback_text, flip_btn]
-    )
-
-    mcq_submit_btn.click(
-        submit_mcq,
-        inputs=mcq_options,
-        outputs=[mcq_options, feedback_text, flip_btn, next_btn]
+    submit_btn_shared.click(
+        submit_answer,
+        inputs=[scq_options, mcq_options],
+        outputs=[scq_options, feedback_text, flip_btn, next_btn]
     )
 
     flip_btn.click(flip_to_show_answer, outputs=feedback_text)
@@ -193,20 +222,29 @@ with gr.Blocks() as demo:
     next_btn.click(
         next_question,
         outputs=[
-            input_form, flashcard, question_text,
-            scq_options, mcq_options, mcq_submit_btn,
-            feedback_text, flip_btn, next_btn
+            input_form, flashcard, csv_output_form,
+            question_text, scq_options, mcq_options, submit_btn_shared,
+            feedback_text, flip_btn, next_btn, csv_text_output
         ]
     )
 
     back_btn.click(
         go_back,
         outputs=[
-            input_form, flashcard, question_text,
-            scq_options, mcq_options, mcq_submit_btn,
-            feedback_text, flip_btn, next_btn
+            input_form, flashcard, csv_output_form,
+            question_text, scq_options, mcq_options, submit_btn_shared,
+            feedback_text, flip_btn, next_btn, csv_text_output
+        ]
+    )
+
+    csv_back_btn.click(
+        go_back,
+        outputs=[
+            input_form, flashcard, csv_output_form,
+            question_text, scq_options, mcq_options, submit_btn_shared,
+            feedback_text, flip_btn, next_btn, csv_text_output
         ]
     )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(share=True)

@@ -1,4 +1,5 @@
-# backend/test_pipeline_agno.py
+# backend/test_pipeline.py
+# -*- coding: utf-8 -*-
 
 from dotenv import load_dotenv; load_dotenv()
 from pprint import pprint
@@ -6,62 +7,36 @@ from indic_quiz_generator_pipeline import build_english_quiz_agent, build_quiz_p
 
 # Input
 chapter_text = """
-    Chapter 1
+   Chapter 16
 
-    Sanatana Dharma explains the three primary forms of Bhagavān (भगवान्) as Brahma Deva (ब्रह्म-देव) - the creator, Viṣhṇu Bhagavān (विष्णु-भगवान्) - the preserver, and Shiva Bhagavān (शिव-भगवान्) - the destroyer.
+By then, Kaṃsa summoned Pūtanā - the Rākṣhasī (राक्षसी) and asked her to scoot neighboring villages for a newborn male child. Through the powers of her Māyā (माया), Pūtanā transformed herself into a beautiful woman and began wandering the villages and cities that surrounded Mathurā and eventually reached Gokula. There, she saw a house from which several women were coming out. It was Nanda’s house and the village women had just been there to see the beautiful Kṛiṣhṇa. Pūtanā walked inside when no one was around. Kṛiṣhṇa was alone. She lifted him from the cradle, sat down and placed him on her lap. Pūtanā took the child and pressed his lips against her breasts filled with poisoned milk. Just a sip would have killed the child - any ordinary child. But this child was Bhagavān. Kṛiṣhṇa sucked on Pūtanā’s breasts with such vigor that she felt her very life being sucked out of her. She began to scream. She shirked. But to no avail. Pūtanā let out such a deafening cry of agony that everyone heard it like thunder. And she fell down lifeless. Pūtanā instantly changed into her original Rākṣhasī form. People rushed to the spot and were amazed at seeing an enormous Rākṣhasī dead. And little Kṛiṣhṇa sitting on her body and playing. Yaśhodā rushed and picked Kṛiṣhṇa up. She held him close in her arms and hurried away from the presence of the dead Rākṣhasī.
 
-    Srimad-Bhāgavatam (श्रीमद्-भागवतम्) is the authoritative source that speaks about Viṣhṇu Bhagavān. 
+The Gopas (गोप) of Gokula dragged Pūtanā’s body with great difficulty and burnt it. From the fire emerged an amazing glow. And from her dead body came the fragrant smell of sandalwood and divine scents. Everyone was amazed.
 
-    The Dashāvatāra (दशावतार) is an excerpt from Srimad-Bhāgavatam that speaks about the ten primary Avatāras of Viṣhṇu. Dasha (दश) means ten and Avatāra (अवतार) means incarnation.
+Pūtanā, by feeding the Supreme Bhagavān, had attained Mokṣha (मोक्ष). If a Rākṣhasī with the intent of destroying Bhagavān could attain Mokṣha because she fed Bhagavān with poison, imagine the fortune of Yaśhodā and the Gopīs (गोपी) who fed him with milk and dairy everyday.
 
-    Throughout the history of the universe, Bhagavān Viṣhṇu has incarnated in various forms for upholding Dharma (धर्म) and eradicating Adharma (अधर्म). The knowledge of these Avatāras is fundamentally important in understanding and appreciating bharatīya samskriti (भारतीय-संस्कृति). And they are fun.
+It is said that anyone who listens to this story, called Pūtanāmokṣha (पूतनामोक्ष), with attention and reverence, will forever be blessed with his mind eternally set on Kṛiṣhṇa. He will be blessed with unwavering devotion to Kṛiṣhṇa.
 
-    From incarnating as a fish in Matsya-Avatāra (मत्स्य-अवतार), to the incarnation as a perfect human being in Rama Avatāra (राम-अवतार), Bhagavān Viṣhṇu teaches us immense lessons in morality and virtue. A better way of saying it, is that they teach us Dharma. They offer us a grounding knowledge of the vastness that is Bhāratam. And most of all, brings a sense of Bhakti (भक्ति) into our lives.
+Kṛiṣhṇa was now three months old and had learnt to turn over on his belly. One day, a large group of people from Gokula went to the banks of River Yamunā. Yaśhodā placed Kṛiṣhṇa in a cradle and placed the cradle under the cart in which they had travelled to protect him from the scorching sun.
 
-    Over the course of my life learning and teaching Sanātana Dharma (सनातन-धर्म), I’ve come across several people who have asked for a crash course in Hinduism. While it is impossible to fit the vastness of our culture into a synopsis, if there ever is a shortest, fastest path to understanding Sanātana Dharma, it is through the Dashāvatāra. 
+Kaṃsa’s henchman - Śhakaṭāsura (शकटासुर), had come there to kill Kṛiṣhṇa. Śhakaṭā had entered the wheel of the very cart under which Kṛiṣhṇa was placed. His plan was to kill Kṛiṣhṇa when no one was looking.
 
-    The ten Avatāras are listed below.
-    Matsya Avatāra - मत्स्य-अवतार
-    Viṣhṇu Bhagavān incarnates as a fish to save the sapta-rishis (सप्तऋषि), Vedas (वेद), and the seeds of various plants and herbs. He helps King Satyavrata (सत्यव्रत) to transport all of them to safety - to the beginning of the next Manvantara (मन्वन्तर).
-    Kūrma Avatāra - कूरम-अवतार
-    (Bhagavān Viṣhṇu incarnates as a huge turtle to hold the mountain Mandara (मन्दर) on his back and help Devas and Asuras churn the milky ocean to get amrta (अमृत) - a nectar that is said to give everlasting life.
-    Varāha Avatāra - वराह-अवतार
-    Hiraṇyākṣha (हिरण्याक्ष), an asura of the underworld, took Bhūmī-devī (भूमी-देवी) - Mother earth, to his place of abode. This place, called Rasātala (रसातल) was under the cosmic ocean. Bhagavān Viṣhṇu incarnated as a big boar and brought back Mother Earth.
-    Narasimha Avatāra - नरसिंह-अवतार
-    Bhagavān incarnates as a half man-half lion to protect his devotee, Prahlāda (प्रह्लाद) - a 5-year-old boy, who had staunch devotion towards Bhagavān Viṣhṇu.
-    Vāmana Avatāra - वामन-अवतार
-    When Mahābalī (महाबली), the grandson of Prahlada had conquered all the 3 worlds, Bhagavān comes as a small dwarf - Vāmana, and frees the worlds from Mahābalī’s atrocities.
-    Paraśhurāma Avatāra - परशुराम-अवतार
-    Bhagavān comes as Paraśhurāma to punish the Kings who had forgotten their dharma and started bothering Sādhus.
-    Shri Rāma Avatāra - श्रीराम-अवतार
-    A divine Avatāra to give the world a perfect role model. To show the importance of obedience to parents’ words. And also, to demonstrate how to treat joy and sorrow as equal.
-    Balarāma Avatāra - बलराम-अवतार
-    Born as Kṛiṣhṇa’s elder brother, Balarāma helped Kṛiṣhṇa fight adharma and protect Sādhus.
-    Sri Krishna Avatāra - श्रीकृष्ण-अवतार
-    The sweetest Avatāra of Bhagavān, who incarnated to shower his divine leelās (लीला) on people, so that we can sing his name, and remember his beauty. Not to mention, the pranks that he played on gopikās (गोपिका) and gopas (गोप) of the village.
-    Kalki Avatāra - कल्कि-अवतार
-    This Avatāra is going to happen at the end of the Kali-Yuga (कलियुग), when people would forget all dharma and start to lead a completely adharmic life.
+Kṛiṣhṇa by this time had woken up. He crawled closer to the wheel of the cart and gave it a mighty kick with his legs that were as slender as a creeper. The entire cart was dislodged by the power of the kick. It flew and fell a great distance away, as though it was flung. It had turned upside down, with the metal jars containing milk and curd that was placed in the cart crushed. The cart’s pole was shattered. People wondered how the cart could dislodge itself in such a fashion. Some of the boys playing there said that they saw Kṛiṣhṇa kicking the cart. But no one believed that a three month old child was capable of kicking a cart, let alone cause such damage.
 
-    The Dashāvatāra stories are fun. They are inspiring. They teach us Dharma. They teach us about Bhāratam. We dedicate the telling of this series to every single one of us, who aspire to reach Bhagavān Viṣhṇu himself, one day.
+In reality, it was Śhakaṭāsura that was the recipient of the kick and he immediately died. 
 
-    A brief background about Bhāgavatam
+History of Śhakaṭāsura
 
-    Srimad-Bhāgavatam (श्रीमद्-भागवतम्) is a mahā purāṇa with 10 unique characteristics 
-    Sarga (सर्ग) - Primary Creation 
-    Visarga (विसर्ग) - Secondary Creation
-    Sthānam (स्थान) - How Bhagavān keeps everything under control
-    Poṣhaṇam (पोषण) - How Bhagavān nourishes all jīvas
-    ūtayas (ऊतयः) - vāsanās, latent tendencies
-    Manvantara (मन्वन्तर) - Stories of 14 Manus
-    Iśhā anukathā (ईशा अनुकथा) - Various Avatāras of Bhagavān
-    Nirodha (निरोध) - When Bhagavān does yoga nidra (During prayalam), jeevas reside inside Him
-    Mukti (मुक्ति) - Attaining Bhagavān’s charanam, leaving ahaṅkāra (अहङ्कार) - the feeling of (I) and mamakāra (ममकार) - the feeling of mine
-    Āśhraya (आश्रय) - Taking refuge in Bhagavān’s charanam
+Hiraṇyākṣha- who was killed by Bhagavān Viṣhṇu’s Varāha Avatāra, had a strong and powerful son called Utkacha (उत्कच). At one time, when this Rākṣhasa  destroyed the trees of Sage Lomaśha’s (लोमश) Āśhrama , the sage cursed that the Rākṣhasa  would lose his body. Utkacha asked for forgiveness and Sage Lomaśha said that the Rākṣhasa  would be liberated from the curse when Kṛiṣhṇa touched him with his feet. It was Utkacha who had entered the cart in his disembodied state and was subsequently liberated when Kṛiṣhṇa kicked him.
 
-    Srimad-Bhāgavatam (श्रीमद्-भागवतम्) has 12 Skandās (Cantos), 335 chapters and 18,000 shlokas. All 12 Skandās describe the glories of Bhagavān, greatness of bhagavataḥ nāmasaṅkīrtanam and are filled with charitras (stories) of the devotees of Bhagavān.
-    """
+Kṛiṣhṇa was now one year old. One day, Yaśhodā placed a sleeping Kṛiṣhṇa in the courtyard and went inside to do some household work. Just then, another henchman of Kaṃsa named Tṛṇāvarta (तृणावर्त) took the form of a whirlwind and came to Gokula. Everyone in Gokula was suddenly overpowered. A tornado seemed to have hit. The dust blew high. No one could see anything. Everyone held on to something and closed their eyes. It was noisy. Deafening.
 
-final_prompt = build_quiz_prompt(chapter_text)
+While everyone was distracted by the whirlwind, Tṛṇāvarta had carried Kṛiṣhṇa high into the sky with the objective of dashing him to the ground and killing him. The child, however, was becoming heavier and heavier for Tṛṇāvarta to carry. He tried to drop him, but Kṛiṣhṇa caught Asura's neck and squeezed it. Tṛṇāvarta was choking. He could not breathe. He struggled. He gasped. Tiny as the child’s hands were, they did not budge from Tṛṇāvarta’s neck. And he fell hard onto the ground. Dead.
+
+The whirlwind stopped. Everyone rushed to the dead Asura and found little Kṛiṣhṇa hanging onto his chest. They took the child and handed him to Yaśhodā. No one in Gokula knew how the Asura landed there. Or how he died. But they were delighted that their beloved child was safe. Little did they know that it was Kṛiṣhṇa who had brought an end to yet another Asura.
+ """
+
+final_prompt = build_quiz_prompt(chapter_text, num_questions=15)
 
 english_quiz_agent = build_english_quiz_agent()
 

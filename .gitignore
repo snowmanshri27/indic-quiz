@@ -16,6 +16,11 @@ __pycache__/
 # VSCode
 .vscode/
 *.code-workspace
+flagged
+
+# data 
+data
+credentials
 
 # Jupyter notebooks (if any)
 .ipynb_checkpoints/

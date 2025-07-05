@@ -4,3 +4,7 @@ python-dotenv
 json_repair
 agno
 groq
+gspread 
+google-auth 
+google-api-python-client
+

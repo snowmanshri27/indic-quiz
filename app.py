@@ -14,7 +14,7 @@ parser = QuizParser()
 quiz_data = {"questions": [], "index": 0, "answers": [], "last_selected": None}
 
 def generate_quiz(topic, story):
-    final_prompt = build_quiz_prompt(story)
+    final_prompt = build_quiz_prompt(story, num_questions=15)
 
     try:
         english_quiz = english_quiz_agent.run(final_prompt)
