@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import os
+import argparse
 import re
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from config import load_app_config
 
 from dotenv import load_dotenv; load_dotenv()
 from config import env_config, app_config
@@ -40,13 +42,13 @@ def quiz_json_to_dataframe(quiz_json: dict) -> pd.DataFrame:
             "Chapter": q["Chapter"],
             "Timer": q["Timer"],
             "Points": q["Number_Of_Points_Earned"],
-            "Type": q["Question_type"],
+            "Type": "SCQ" if (q["Question_type"] == "MCQ" and len(q["Right_Option"].replace(" ", "")) == 1) else q["Question_type"],
             "Question": q["Question"].strip() + "?" if not q["Question"].strip().endswith("?") else q["Question"].strip(),
             "Option A": clean_option(q["Options"][0]) if len(q["Options"]) > 0 else "",
             "Option B": clean_option(q["Options"][1]) if len(q["Options"]) > 1 else "",
             "Option C": clean_option(q["Options"][2]) if len(q["Options"]) > 2 else "",
             "Option D": clean_option(q["Options"][3]) if len(q["Options"]) > 3 else "",
-            "Right Answer": q["Right_Option"]
+            "Right Answer": q["Right_Option"].replace(" ", "").lower()
         }
         for q in questions
     )
@@ -57,7 +59,7 @@ def upload_to_sheet(df: pd.DataFrame, chapter_title: str):
     client = gspread.authorize(creds)
 
     spreadsheet = client.open(SPREADSHEET_NAME)
-    
+
     # Check if sheet with chapter_title exists, else create it
     try:
         worksheet = spreadsheet.worksheet(chapter_title)
@@ -73,47 +75,56 @@ def upload_to_sheet(df: pd.DataFrame, chapter_title: str):
     return spreadsheet.id, creds
 
 # ======== STEP 4: Conditional Formatting ========
-def apply_conditional_formatting(spreadsheet_id: str, chapter_title:str, df: pd.DataFrame, creds):
+def apply_conditional_formatting(spreadsheet_id: str, chapter_title: str, df: pd.DataFrame, creds):
     sheets_api = build('sheets', 'v4', credentials=creds)
+
+    # Get the sheet ID based on chapter_title
     sheet_metadata = sheets_api.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
     sheet_id = None
     for s in sheet_metadata['sheets']:
         if s['properties']['title'] == chapter_title:
             sheet_id = s['properties']['sheetId']
             break
-
     if sheet_id is None:
         raise ValueError(f"Sheet ID not found for worksheet '{chapter_title}'")
 
-    # clear all existing color formatting
+    # Clear only formatting (keep contents intact)
     clear_all_sheet_formatting_only(sheets_api, spreadsheet_id, sheet_id)
 
-    option_columns = {'a': 5, 'b': 6, 'c': 7, 'd': 8}  # F-I
+    # Mapping: Option A–D -> Columns F–I (5–8)
+    option_columns = {'a': 5, 'b': 6, 'c': 7, 'd': 8}
     highlight_color = {"red": 0.78, "green": 0.90, "blue": 0.79}
     requests = []
 
-    for i, row in enumerate(df.itertuples(index=False), start=1):  # +1 to skip header
-        right_answer = str(row[-1]).lower()
-        for letter, col_idx in option_columns.items():
-            cell_format = {
-                "userEnteredFormat": {
-                    "backgroundColor": highlight_color if letter in right_answer else None
-                }
-            }
-            requests.append({
-                "repeatCell": {
-                    "range": {
-                        "sheetId": sheet_id,
-                        "startRowIndex": i,
-                        "endRowIndex": i + 1,
-                        "startColumnIndex": col_idx,
-                        "endColumnIndex": col_idx + 1
-                    },
-                    "cell": cell_format,
-                    "fields": "userEnteredFormat.backgroundColor"
-                }
-            })
+    # Iterate through each question row (skipping header)
+    for i, row in enumerate(df.itertuples(index=False), start=1):
+        # SCQ: 'c', MCQ: 'bd', etc.
+        correct_options = str(row[-1]).strip().lower()
 
+        for letter, col_idx in option_columns.items():
+            is_correct = letter in correct_options
+
+            # Only apply formatting if correct; otherwise, skip to avoid clearing other formatting
+            if is_correct:
+                requests.append({
+                    "repeatCell": {
+                        "range": {
+                            "sheetId": sheet_id,
+                            "startRowIndex": i,
+                            "endRowIndex": i + 1,
+                            "startColumnIndex": col_idx,
+                            "endColumnIndex": col_idx + 1
+                        },
+                        "cell": {
+                            "userEnteredFormat": {
+                                "backgroundColor": highlight_color
+                            }
+                        },
+                        "fields": "userEnteredFormat.backgroundColor"
+                    }
+                })
+
+    # Send all formatting updates in one batch
     if requests:
         sheets_api.spreadsheets().batchUpdate(
             spreadsheetId=spreadsheet_id,
@@ -123,31 +134,76 @@ def apply_conditional_formatting(spreadsheet_id: str, chapter_title:str, df: pd.
     print("✅ Correct options highlighted in green.")
 
 # ======== MAIN PIPELINE FUNCTION ========
-def run_gurukula_quiz_pipeline(chapter_text: str, chapter_title: str, ):
+
+# ======== Processing Single Chapter ========
+def run_single_quiz_pipeline(chapter_title: str, ):
     # get the chapter counts from the app_config YAML
     num_questions = app_config.get("chapter_question_counts", {}).get(chapter_title, 15)  # fallback to 15
+
+    if not num_questions:
+        raise ValueError(f"Chapter '{chapter_title}' not found in app config.")
+
+    chapter_path = f"data/{chapter_title}.txt"
+    if not os.path.exists(chapter_path):
+        raise FileNotFoundError(f"No such chapter text file: {chapter_path}")
+
+    print(f"📘 Reading File: {chapter_path} ...")
+    with open(chapter_path, "r", encoding="utf-8") as f:
+        chapter_text = f.read()
+
+    print(f"📘 Processing: {chapter_title} with {num_questions} questions...")
+
     quiz_json = generate_quiz_json(chapter_text, num_questions)
+
+    print(f"✅ Quiz Generated: {chapter_title}")
+
     df = quiz_json_to_dataframe(quiz_json)
     spreadsheet_id, creds = upload_to_sheet(df, chapter_title)
     apply_conditional_formatting(spreadsheet_id, chapter_title, df, creds)
+    
+    print(f"✅ Done: {chapter_title}\n")
 
+# ======== Processing Chapters in Batch ========
+def run_batch_quiz_pipeline():
+    app_config = load_app_config()
+    data_folder = "data"
+    quiz_counts = app_config.get("chapter_question_counts", {})
 
-# Optional: Enable CLI use
+    agent = build_english_quiz_agent()
+    parser = QuizParser()
+
+    for filename in os.listdir(data_folder):
+        if filename.endswith(".txt"):
+            filepath = os.path.join(data_folder, filename)
+            chapter_title = filename.replace(".txt", "").replace("data/", "").strip()
+
+            num_questions = quiz_counts.get(chapter_title.lower(), 15)  # default to 15 if not found
+            
+            print(f"📘 Reading File: {filename} ...")
+
+            with open(filepath, "r", encoding="utf-8") as f:
+                chapter_text = f.read()
+
+            print(f"📘 Processing: {chapter_title} with {num_questions} questions...")
+
+            quiz_json = generate_quiz_json(chapter_text, num_questions)
+
+            print(f"✅ Quiz Generated: {chapter_title}")
+
+            df = quiz_json_to_dataframe(quiz_json)
+
+            spreadsheet_id, creds = upload_to_sheet(df, chapter_title)
+            apply_conditional_formatting(spreadsheet_id, chapter_title, df, creds)
+
+            print(f"✅ Done: {chapter_title}\n")
+
 if __name__ == "__main__":
-    import sys
-    from pathlib import Path
+    parser = argparse.ArgumentParser(description="Run quiz pipeline for Gurukula content.")
+    parser.add_argument("--chapter", type=str, help="Run quiz generation for a specific chapter (e.g. 'chapter16')")
 
-    if len(sys.argv) != 2:
-        print("Usage: python backend/gurukula_quizgen.py <path_to_chapter_text.txt>")
+    args = parser.parse_args()
+
+    if args.chapter:
+        run_single_quiz_pipeline(args.chapter)
     else:
-        chapter_file = Path(sys.argv[1])
-        if not chapter_file.exists():
-            print(f"❌ File not found: {chapter_file}")
-        else:
-            chapter_path = sys.argv[1]
-            # Get the file name without directory and extension
-            chapter_title = (
-                os.path.splitext(os.path.basename(chapter_path))[0]
-            )
-            chapter_text = chapter_file.read_text()
-            run_gurukula_quiz_pipeline(chapter_text, chapter_title)
+        run_batch_quiz_pipeline()
