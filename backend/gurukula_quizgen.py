@@ -13,9 +13,7 @@ from config import load_app_config
 from dotenv import load_dotenv; load_dotenv()
 from config import env_config, app_config
 from indic_quiz_generator_pipeline import (
-    build_english_quiz_agent,
-    build_quiz_prompt,
-    QuizParser
+    run_parallel_quiz_with_mcq_retry,
 )
 from utils.gsheets import clear_all_sheet_formatting_only
 
@@ -25,11 +23,13 @@ SPREADSHEET_NAME = app_config["spreadsheet"]["name"]
 
 # ======== STEP 1: Run Agent and Get JSON ========
 def generate_quiz_json(chapter_text: str, num_questions: int = 15) -> dict:
-    prompt = build_quiz_prompt(chapter_text, num_questions)
-    agent = build_english_quiz_agent()
-    response = agent.run(prompt)
-    parsed_quiz = QuizParser().run(response.content)
-    return parsed_quiz
+    quiz = run_parallel_quiz_with_mcq_retry(chapter_text, num_questions)
+
+    # Flatten to match old format: {'Questions': [...]}
+    return {
+        "Topic": quiz["Quiz"]["Topic"],
+        "Questions": quiz["Quiz"]["Questions"]
+    }
 
 # ======== STEP 2: Convert to DataFrame ========
 def clean_option(opt: str) -> str:
@@ -51,7 +51,7 @@ def quiz_json_to_dataframe(quiz_json: dict) -> pd.DataFrame:
             "Right Answer": q["Right_Option"].replace(" ", "").lower()
         }
         for q in questions
-    )
+    ).sample(frac=1, random_state=42).reset_index(drop=True)
 
 # ======== STEP 3: Upload to Google Sheet ========
 def upload_to_sheet(df: pd.DataFrame, chapter_title: str):
@@ -135,6 +135,28 @@ def apply_conditional_formatting(spreadsheet_id: str, chapter_title: str, df: pd
 
 # ======== MAIN PIPELINE FUNCTION ========
 
+def process_chapter_to_sheet(
+    chapter_path: str,
+    chapter_title: str,
+    num_questions: int,
+    quiz_generator_fn=generate_quiz_json
+):
+    print(f"📘 Reading File: {chapter_path} ...")
+    with open(chapter_path, "r", encoding="utf-8") as f:
+        chapter_text = f.read()
+
+    print(f"📘 Processing: {chapter_title} with {num_questions} questions...")
+    quiz_json = quiz_generator_fn(chapter_text, num_questions)
+    print(f"✅ Quiz Generated: {chapter_title}")
+
+    df = quiz_json_to_dataframe(quiz_json)
+
+    spreadsheet_id, creds = upload_to_sheet(df, chapter_title)
+    apply_conditional_formatting(spreadsheet_id, chapter_title, df, creds)
+    print(f"✅ Done: {chapter_title}\n")
+
+    return spreadsheet_id  # Optional return
+
 # ======== Processing Single Chapter ========
 def run_single_quiz_pipeline(chapter_title: str, ):
     # get the chapter counts from the app_config YAML
@@ -147,21 +169,7 @@ def run_single_quiz_pipeline(chapter_title: str, ):
     if not os.path.exists(chapter_path):
         raise FileNotFoundError(f"No such chapter text file: {chapter_path}")
 
-    print(f"📘 Reading File: {chapter_path} ...")
-    with open(chapter_path, "r", encoding="utf-8") as f:
-        chapter_text = f.read()
-
-    print(f"📘 Processing: {chapter_title} with {num_questions} questions...")
-
-    quiz_json = generate_quiz_json(chapter_text, num_questions)
-
-    print(f"✅ Quiz Generated: {chapter_title}")
-
-    df = quiz_json_to_dataframe(quiz_json)
-    spreadsheet_id, creds = upload_to_sheet(df, chapter_title)
-    apply_conditional_formatting(spreadsheet_id, chapter_title, df, creds)
-    
-    print(f"✅ Done: {chapter_title}\n")
+    process_chapter_to_sheet(chapter_path, chapter_title, num_questions)
 
 # ======== Processing Chapters in Batch ========
 def run_batch_quiz_pipeline():
@@ -169,33 +177,14 @@ def run_batch_quiz_pipeline():
     data_folder = "data"
     quiz_counts = app_config.get("chapter_question_counts", {})
 
-    agent = build_english_quiz_agent()
-    parser = QuizParser()
-
     for filename in os.listdir(data_folder):
         if filename.endswith(".txt"):
             filepath = os.path.join(data_folder, filename)
             chapter_title = filename.replace(".txt", "").replace("data/", "").strip()
 
             num_questions = quiz_counts.get(chapter_title.lower(), 15)  # default to 15 if not found
-            
-            print(f"📘 Reading File: {filename} ...")
 
-            with open(filepath, "r", encoding="utf-8") as f:
-                chapter_text = f.read()
-
-            print(f"📘 Processing: {chapter_title} with {num_questions} questions...")
-
-            quiz_json = generate_quiz_json(chapter_text, num_questions)
-
-            print(f"✅ Quiz Generated: {chapter_title}")
-
-            df = quiz_json_to_dataframe(quiz_json)
-
-            spreadsheet_id, creds = upload_to_sheet(df, chapter_title)
-            apply_conditional_formatting(spreadsheet_id, chapter_title, df, creds)
-
-            print(f"✅ Done: {chapter_title}\n")
+            process_chapter_to_sheet(filepath, chapter_title, num_questions)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run quiz pipeline for Gurukula content.")
